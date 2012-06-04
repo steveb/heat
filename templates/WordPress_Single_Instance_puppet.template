@@ -1,4 +1,5 @@
-TemplateFormatVersion" : "2010-09-09",
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
   
   "Description": "Sample template to bring up WordPress using the Puppet client to install server roles. A WaitCondition is used to hold up the stack creation until the application is deployed. **WARNING** This template creates one or more Amazon EC2 instances and CloudWatch alarms. You will be billed for the AWS resources used if you create a stack from this template.",
   
@@ -18,12 +19,12 @@ TemplateFormatVersion" : "2010-09-09",
     "InstanceType" : {
       "Description" : "WebServer EC2 instance type",
       "Type" : "String",
-      "Default" : "m1.small",
+      "Default" : "m1.large",
       "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
       "ConstraintDescription" : "must be a valid EC2 instance type."
     },
     "DatabaseType": {
-      "Default": "db.m1.small",
+      "Default": "m1.large",
       "Description" : "The database instance type",
       "Type": "String",
       "AllowedValues" : [ "db.m1.small", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge" ],
@@ -48,38 +49,61 @@ TemplateFormatVersion" : "2010-09-09",
       "MaxLength": "41",
       "AllowedPattern" : "[a-zA-Z0-9]*",
       "ConstraintDescription" : "must contain only alphanumeric characters."
+    },
+    "LinuxDistribution": {
+      "Default": "F16",
+      "Description" : "Distribution of choice",
+      "Type": "String",
+      "AllowedValues" : [ "F16", "F17", "U10", "RHEL-6.1", "RHEL-6.2", "RHEL-6.3" ]
     }
   },
-  
   "Mappings" : {
     "AWSInstanceType2Arch" : {
-      "t1.micro"    : { "Arch" : "64" },
-      "m1.small"    : { "Arch" : "64" },
-      "m1.medium"   : { "Arch" : "64" },
+      "t1.micro"    : { "Arch" : "32" },
+      "m1.small"    : { "Arch" : "32" },
       "m1.large"    : { "Arch" : "64" },
       "m1.xlarge"   : { "Arch" : "64" },
       "m2.xlarge"   : { "Arch" : "64" },
       "m2.2xlarge"  : { "Arch" : "64" },
       "m2.4xlarge"  : { "Arch" : "64" },
-      "c1.medium"   : { "Arch" : "64" },
+      "c1.medium"   : { "Arch" : "32" },
       "c1.xlarge"   : { "Arch" : "64" },
-      "cc1.4xlarge" : { "Arch" : "64HVM" },
-      "cc2.8xlarge" : { "Arch" : "64HVM" },
-      "cg1.4xlarge" : { "Arch" : "64HVM" }
+      "cc1.4xlarge" : { "Arch" : "64" }
     },
-
-    "AWSRegionArch2AMI" : {
-      "us-east-1"      : { "32" : "ami-31814f58", "64" : "ami-1b814f72", "64HVM" : "ami-0da96764" },
-      "us-west-2"      : { "32" : "ami-38fe7308", "64" : "ami-30fe7300", "64HVM" : "NOT_YET_SUPPORTED" },
-      "us-west-1"      : { "32" : "ami-11d68a54", "64" : "ami-1bd68a5e", "64HVM" : "NOT_YET_SUPPORTED" },
-      "eu-west-1"      : { "32" : "ami-973b06e3", "64" : "ami-953b06e1", "64HVM" : "NOT_YET_SUPPORTED" },
-      "ap-southeast-1" : { "32" : "ami-b4b0cae6", "64" : "ami-beb0caec", "64HVM" : "NOT_YET_SUPPORTED" },
-      "ap-northeast-1" : { "32" : "ami-0644f007", "64" : "ami-0a44f00b", "64HVM" : "NOT_YET_SUPPORTED" },
-      "sa-east-1"      : { "32" : "ami-3e3be423", "64" : "ami-3c3be421", "64HVM" : "NOT_YET_SUPPORTED" }
+    "DistroArch2AMI": {
+      "F16"      : { "32" : "F16-i386-cfntools", "64" : "F16-x86_64-cfntools" },
+      "F17"      : { "32" : "F17-i386-cfntools", "64" : "F17-x86_64-cfntools" },
+      "U10"      : { "32" : "U10-i386-cfntools", "64" : "U10-x86_64-cfntools" },
+      "RHEL-6.1" : { "32" : "rhel61-i386-cfntools", "64" : "rhel61-x86_64-cfntools" },
+      "RHEL-6.2" : { "32" : "rhel62-i386-cfntools", "64" : "rhel62-x86_64-cfntools" },
+      "RHEL-6.3" : { "32" : "rhel63-i386-cfntools", "64" : "rhel63-x86_64-cfntools" }
     }
   },
     
   "Resources" : {  
+    "DatabaseIPAddress" : {
+      "Type" : "AWS::EC2::EIP"
+    },
+
+    "DatabaseIPAssoc" : {
+      "Type" : "AWS::EC2::EIPAssociation",
+      "Properties" : {
+        "InstanceId" : { "Ref" : "WordPressDatabase" },
+        "EIP" : { "Ref" : "DatabaseIPAddress" }
+      }
+    },
+
+    "WebServerIPAddress" : {
+      "Type" : "AWS::EC2::EIP"
+    },
+
+    "WebServerIPAssoc" : {
+      "Type" : "AWS::EC2::EIPAssociation",
+      "Properties" : {
+        "InstanceId" : { "Ref" : "WebServer" },
+        "EIP" : { "Ref" : "WebServerIPAddress" }
+      }
+    },
 
     "CFNInitUser" : {
       "Type" : "AWS::IAM::User",
@@ -157,7 +181,7 @@ TemplateFormatVersion" : "2010-09-09",
         },
         "Puppet" : {
           "roles"    : [ "wordpress" ],
-          "host"     : {"Fn::GetAtt" : ["WordPressDatabase", "Endpoint.Address"]},
+          "host"     : { "Ref" : "DatabaseIPAddress" },
           "database" : "WordPressDB",
           "user"     : {"Ref" : "DatabaseUser"},
           "password" : {"Ref" : "DatabasePassword" }
@@ -165,12 +189,10 @@ TemplateFormatVersion" : "2010-09-09",
       },
       "Properties": {
         "SecurityGroups": [ { "Ref": "PuppetClientSecurityGroup" }, { "Ref" : "EC2SecurityGroup" } ],
-        "ImageId": { "Fn::FindInMap": [ "AWSRegionArch2AMI", { "Ref": "AWS::Region" }, { "Fn::FindInMap": [ "AWSInstanceType2Arch", { "Ref": "InstanceType" }, "Arch" ] } ]
-        },
+        "ImageId" : { "Fn::FindInMap" : [ "DistroArch2AMI", { "Ref" : "LinuxDistribution" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash\n",
-          "yum update -y aws-cfn-bootstrap\n",
-
           "/opt/aws/bin/cfn-init --region ", { "Ref" : "AWS::Region" },
           "    -s ", { "Ref" : "AWS::StackName" }, " -r WebServer ",
           "    --access-key ", { "Ref" : "CFNKeys" },

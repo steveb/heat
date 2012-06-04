@@ -20,9 +20,38 @@ import logging
 from heat.common import exception
 from heat.engine import checkeddict
 from heat.engine.resources import Resource
+from heat.engine import cloud_watch
+from heat.engine import eip
+from heat.engine import escalation_policy
+from heat.engine import instance
+from heat.engine import resources
+from heat.engine import security_group
+from heat.engine import user
+from heat.engine import volume
+from heat.engine import wait_condition
+from heat.engine import rds
 from heat.db import api as db_api
 
 logger = logging.getLogger('heat.engine.parser')
+
+
+(RESOURCE_CLASSES,) = ({
+    'AWS::EC2::Instance': instance.Instance,
+    'AWS::EC2::Volume': volume.Volume,
+    'AWS::EC2::VolumeAttachment': volume.VolumeAttachment,
+    'AWS::EC2::EIP': eip.ElasticIp,
+    'AWS::EC2::EIPAssociation': eip.ElasticIpAssociation,
+    'AWS::EC2::SecurityGroup': security_group.SecurityGroup,
+    'AWS::CloudWatch::Alarm': cloud_watch.CloudWatchAlarm,
+    'HEAT::Recovery::EscalationPolicy': escalation_policy.EscalationPolicy,
+    'AWS::CloudFormation::WaitConditionHandle':
+        wait_condition.WaitConditionHandle,
+    'AWS::CloudFormation::WaitCondition': wait_condition.WaitCondition,
+    'AWS::IAM::User': user.User,
+    'AWS::IAM::AccessKey': user.AccessKey,
+    'AWS::RDS::DBSecurityGroup': rds.DBSecurityGroup,
+    'AWS::RDS::DBInstance': rds.DBInstance,
+},)
 
 
 class Stack(object):

@@ -17,7 +17,7 @@ import collections
 import re
 import logging
 
-logger = logging.getLogger('heat.engine.checkeddict')
+logger = logging.getLogger(__file__)
 
 
 class CheckedDict(collections.MutableMapping):

@@ -107,13 +107,13 @@
                 "group"  : "root"
               },
               "/etc/puppet/autosign.conf" : {
-                "content" : "*.internal\n",
+                "content" : "*.novalocal\n",
                 "mode"    : "100644",
                 "owner"   : "root",
                 "group"   : "wheel"
               },
               "/etc/puppet/fileserver.conf" : {
-                "content" : "[modules]\n   allow *.internal\n",
+                "content" : "[modules]\n   allow *.novalocal\n",
                 "mode"    : "100644",
                 "owner"   : "root",
                 "group"   : "wheel"
@@ -139,17 +139,37 @@
                 "group"   : "wheel"
               },
               "/etc/puppet/modules/cfn/lib/facter/cfn.rb" : {
-                "source"  : "https://s3.amazonaws.com/cloudformation-examples/cfn-facter-plugin.rb",
-                "mode"    : "100644",
-                "owner"   : "root",
-                "group"   : "wheel"
-              },
+                "content" : {"Fn::Join" : ["", [
+                  "# cfn.rb\n",
+                  "require 'rubygems'\n",
+                  "require 'json'\n",
+                  "filename = '/var/lib/cloud/data/cfn-init-data'\n",
+                  "if not File.exist?(filename)\n",
+                  "   return\n",
+                  "end\n",
+                  "parsed = JSON.load(File.new(filename))\n",
+                  "parsed.default = Hash.new\n",
+                  "parsed['Puppet'].each do |key, value|\n",
+                  "   actual_value = value\n",
+                  "   if value.is_a? Array\n",
+                  "    actual_value = value.join(',')\n",
+                  "   end\n",
+                  "   Facter.add('cfn_' + key) do\n",
+                  "     setcode do\n",
+                  "       actual_value\n",
+                  "     end\n",
+                  "   end\n",
+                  "end\n"]] },
+              "mode" : "100644",
+              "owner" : "root",
+              "group" : "wheel"
+            },
               "/etc/puppet/manifests/nodes.pp" : {
                 "content" : {"Fn::Join" : ["", [
                   "node basenode {\n",
                   "  include cfn\n",
                   "}\n",            
-                  "node /^.*internal$/ inherits basenode {\n",
+                  "node /^.*novalocal$/ inherits basenode {\n",
                   "  case $cfn_roles {\n",
                   "    ", { "Ref" : "ContentManifest" }, "\n", 
                   "  }\n",
@@ -184,8 +204,6 @@
         "KeyName" : { "Ref" : "KeyName" },
         "UserData" : { "Fn::Base64" : { "Fn::Join" : ["", [
           "#!/bin/bash\n",
-          "yum update -y aws-cfn-bootstrap\n",
-
           "/opt/aws/bin/cfn-init --region ", { "Ref" : "AWS::Region" },
           "    -s ", { "Ref" : "AWS::StackName" }, " -r PuppetMasterInstance ",
           "    --access-key ", { "Ref" : "CFNKeys" },

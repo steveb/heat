@@ -28,7 +28,7 @@ from heat.engine import security_group
 from heat.engine import user
 from heat.engine import volume
 from heat.engine import wait_condition
-
+from heat.engine import rds
 
 _resource_classes = {
     'AWS::CloudFormation::WaitCondition': wait_condition.WaitCondition,
@@ -45,6 +45,8 @@ _resource_classes = {
     'AWS::IAM::AccessKey': user.AccessKey,
     'HEAT::HA::Restarter': instance.Restarter,
     'HEAT::Recovery::EscalationPolicy': escalation_policy.EscalationPolicy,
+    'AWS::RDS::DBInstance': rds.DBInstance,
+    'AWS::RDS::DBSecurityGroup': rds.DBSecurityGroup,
 }
 
 
