@@ -100,12 +100,6 @@
               "/etc/puppet" : { "Ref" : "ContentLocation" }
             },
             "files" : {
-              "/etc/yum.repos.d/epel.repo" : {
-                "source" : "https://s3.amazonaws.com/cloudformation-examples/enable-epel-on-amazon-linux-ami",
-                "mode"   : "000644",
-                "owner"  : "root",
-                "group"  : "root"
-              },
               "/etc/puppet/autosign.conf" : {
                 "content" : "*.novalocal\n",
                 "mode"    : "100644",
