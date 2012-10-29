@@ -26,6 +26,13 @@ try:
     swiftclient_present = True
 except ImportError:
     swiftclient_present = False
+# quantumclient not available in all distributions - make quantum an optional
+# feature
+try:
+    from quantumclient.v2_0 import client as quantumclient
+    quantumclient_present = True
+except ImportError:
+    quantumclient_present = False
 
 from heat.common import exception
 from heat.common import config
@@ -280,6 +287,33 @@ class Resource(object):
 
         self._swift = swiftclient.Connection(**args)
         return self._swift
+
+    def quantum(self):
+        if quantumclient_present == False:
+            return None
+        if self._quantum:
+            return self._quantum
+
+        con = self.context
+        args = {
+            'auth_url': con.auth_url,
+            'service_type': 'network',
+        }
+
+        if con.password is not None:
+            args['username'] = con.username
+            args['password'] = con.password
+            args['tenant_name'] = con.tenant
+        elif con.auth_token is not None:
+            args['token'] = con.auth_token
+        else:
+            logger.error("Quantum connection failed, "
+                "no password or auth_token!")
+            return None
+
+        self._quantum = quantumclient.Client(**args)
+
+        return self._quantum
 
     def calculate_properties(self):
         for p, v in self.parsed_template('Properties').items():
