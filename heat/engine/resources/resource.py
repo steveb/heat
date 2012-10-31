@@ -131,6 +131,7 @@ class Resource(object):
         self._nova = {}
         self._keystone = None
         self._swift = None
+        self._quantum = None
 
     def __eq__(self, other):
         '''Allow == comparison of two resources'''

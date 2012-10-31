@@ -15,7 +15,6 @@
 
 from heat.common import exception
 from heat.engine.resources import resource
-from novaclient.exceptions import NotFound
 
 from heat.openstack.common import log as logging
 
@@ -29,18 +28,42 @@ class Port(resource.Resource):
                         'ip_address': {'Type': 'String',
                                'Required': True}}
 
-    properties_schema = {'network': {'Type': 'String',
+    properties_schema = {'network_id': {'Type': 'String',
                                     'Required': True},
-                        'value_specs': {'Type': 'Map'},
                         'name': {'Type': 'String'},
-                        'admin_state': {'Type': 'String',
-                                      'AllowedValues': ['up', 'down'],
-                                      'Default': 'up'},
+                        'admin_state_up': {'Default': True},
                         'fixed_ips': {'Type': 'List',
                                     'Schema': fixed_ip_schema},
                         'mac_address': {'Type': 'String'},
-                        'fixed_ip': {'Type': 'String'},
+                        'device_id': {'Type': 'String'},
     }
 
     def __init__(self, name, json_snippet, stack):
         super(Port, self).__init__(name, json_snippet, stack)
+
+    def handle_create(self):
+        props = dict((k, v) for k, v in self.properties.items()
+            if v is not None)
+
+        props.setdefault('name', self.name)
+
+        port = self.quantum().create_port({'port': props})['port']
+
+        self.instance_id_set(port['id'])
+
+    def handle_update(self):
+        return self.UPDATE_REPLACE
+
+    def handle_delete(self):
+        client = self.quantum()
+        try:
+            client.delete_port(self.instance_id)
+        except:
+            pass
+
+    def FnGetRefId(self):
+        return unicode(self.instance_id)
+
+    def FnGetAtt(self, key):
+        raise exception.InvalidTemplateAttribute(resource=self.name,
+                                                 key=key)
