@@ -74,7 +74,11 @@
     "port_floating": {
       "Type": "OS::Quantum::Port",
       "Properties": {
-        "network_id": { "Ref" : "network" }
+        "network_id": { "Ref" : "network" },
+        "fixed_ips": [{
+          "subnet_id": { "Ref" : "subnet" },
+          "ip_address": "10.0.3.22"
+        }]
       }
     },
 

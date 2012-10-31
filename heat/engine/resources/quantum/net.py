@@ -13,17 +13,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from heat.common import exception
-from heat.engine.resources import resource
-
 from heat.openstack.common import log as logging
+from heat.engine.resources.quantum import quantum
 
 logger = logging.getLogger('heat.engine.quantum')
 
 
-class Net(resource.Resource):
+class Net(quantum.QuantumResource):
     properties_schema = {'name': {'Type': 'String'},
-                        'value_specs': {'Type': 'Map'},
+                        'value_specs': {'Type': 'Map',
+                                       'Default': {}},
                         'admin_state_up': {'Default': True},
     }
 
@@ -31,19 +30,9 @@ class Net(resource.Resource):
         super(Net, self).__init__(name, json_snippet, stack)
 
     def handle_create(self):
-        props = dict((k, v) for k, v in self.properties.items()
-            if v is not None and k != 'value_specs')
-
-        props.setdefault('name', self.name)
-        value_specs = self.properties.get('value_specs')
-        if value_specs is not None:
-            props.update(value_specs)
-
+        props = self.prepare_properties()
         net = self.quantum().create_network({'network': props})['network']
         self.instance_id_set(net['id'])
-
-    def handle_update(self):
-        return self.UPDATE_REPLACE
 
     def handle_delete(self):
         client = self.quantum()
@@ -52,9 +41,6 @@ class Net(resource.Resource):
         except:
             pass
 
-    def FnGetRefId(self):
-        return unicode(self.instance_id)
-
     def FnGetAtt(self, key):
-        raise exception.InvalidTemplateAttribute(resource=self.name,
-                                                 key=key)
+        attributes = self.quantum().show_network(self.instance_id)['network']
+        return self.handle_get_attributes(key, attributes)

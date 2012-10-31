@@ -14,14 +14,14 @@
 #    under the License.
 
 from heat.common import exception
-from heat.engine.resources import resource
 
 from heat.openstack.common import log as logging
+from heat.engine.resources.quantum import quantum
 
 logger = logging.getLogger('heat.engine.quantum')
 
 
-class Port(resource.Resource):
+class Port(quantum.QuantumResource):
 
     fixed_ip_schema = {'subnet_id': {'Type': 'String',
                                   'Required': True},
@@ -42,13 +42,8 @@ class Port(resource.Resource):
         super(Port, self).__init__(name, json_snippet, stack)
 
     def handle_create(self):
-        props = dict((k, v) for k, v in self.properties.items()
-            if v is not None)
-
-        props.setdefault('name', self.name)
-
+        props = self.prepare_properties()
         port = self.quantum().create_port({'port': props})['port']
-
         self.instance_id_set(port['id'])
 
     def handle_update(self):
@@ -60,10 +55,3 @@ class Port(resource.Resource):
             client.delete_port(self.instance_id)
         except:
             pass
-
-    def FnGetRefId(self):
-        return unicode(self.instance_id)
-
-    def FnGetAtt(self, key):
-        raise exception.InvalidTemplateAttribute(resource=self.name,
-                                                 key=key)

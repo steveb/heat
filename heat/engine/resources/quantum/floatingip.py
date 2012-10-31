@@ -13,36 +13,26 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from heat.common import exception
-from heat.engine.resources import resource
-
 from heat.openstack.common import log as logging
+from heat.engine.resources.quantum import quantum
 
 logger = logging.getLogger('heat.engine.quantum')
 
 
-class FloatingIP(resource.Resource):
+class FloatingIP(quantum.QuantumResource):
     properties_schema = {'floating_network_id': {'Type': 'String',
                                     'Required': True},
-                        'value_specs': {'Type': 'Map'},
+                        'value_specs': {'Type': 'Map',
+                                       'Default': {}},
                         'port_id': {'Type': 'String'},
                         'fixed_ip_address': {'Type': 'String'},
     }
 
     def handle_create(self):
-        props = dict((k, v) for k, v in self.properties.items()
-            if v is not None and k != 'value_specs')
-
-        value_specs = self.properties.get('value_specs')
-        if value_specs is not None:
-            props.update(value_specs)
-
+        props = self.prepare_properties()
         fip = self.quantum().create_floatingip({
             'floatingip': props})['floatingip']
         self.instance_id_set(fip['id'])
-
-    def handle_update(self):
-        return self.UPDATE_REPLACE
 
     def handle_delete(self):
         client = self.quantum()
@@ -51,15 +41,8 @@ class FloatingIP(resource.Resource):
         except:
             pass
 
-    def FnGetRefId(self):
-        return unicode(self.instance_id)
 
-    def FnGetAtt(self, key):
-        raise exception.InvalidTemplateAttribute(resource=self.name,
-                                                 key=key)
-
-
-class FloatingIPAssociation(resource.Resource):
+class FloatingIPAssociation(quantum.QuantumResource):
     properties_schema = {'floatingip_id': {'Type': 'String',
                                     'Required': True},
                         'port_id': {'Type': 'String',
@@ -80,9 +63,6 @@ class FloatingIPAssociation(resource.Resource):
             'floatingip': props})['floatingip']
         self.instance_id_set('%s:%s' % (floatingip_id, props['port_id']))
 
-    def handle_update(self):
-        return self.UPDATE_REPLACE
-
     def handle_delete(self):
         client = self.quantum()
         try:
@@ -91,10 +71,3 @@ class FloatingIPAssociation(resource.Resource):
                 {'floatingip': {'port_id': None}})
         except:
             pass
-
-    def FnGetRefId(self):
-        return unicode(self.instance_id)
-
-    def FnGetAtt(self, key):
-        raise exception.InvalidTemplateAttribute(resource=self.name,
-                                                 key=key)
