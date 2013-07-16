@@ -60,6 +60,11 @@ class OpenStackClients(object):
         self._swift = None
         self._quantum = None
         self._cinder = None
+        # if there is no auth token in the context
+        # attempt to get one using the context username and password
+        if context.auth_token is None:
+            kc = self.keystone().client
+            context.auth_token = kc.auth_token
 
     def keystone(self):
         if self._keystone:
