@@ -22,7 +22,7 @@ from heat.engine import scheduler
 from heat.common import urlfetch
 from heat.tests.common import HeatTestCase
 from heat.tests import utils
-from heat.tests.utils import setup_dummy_db
+from heat.tests.utils import setup_dummy_db, dummy_context
 
 
 class NestedStackTest(HeatTestCase):
@@ -65,7 +65,9 @@ Outputs:
             'tenant_id': 'aaaa',
             'username': 'test_username',
             'password': 'password',
-            'auth_url': 'http://localhost:5000/v2.0'})
+            'auth_url': 'http://localhost:5000/v2.0',
+            'auth_token': 'abcd1234'})
+        ctx = dummy_context('test_username', 'aaaa', 'password')
         stack_name = 'test_stack'
         tmpl = parser.Template(t)
         stack = parser.Stack(ctx, stack_name, tmpl)

@@ -23,7 +23,6 @@ from testtools import matchers
 from oslo.config import cfg
 
 from heat.common import config
-from heat.common import context
 from heat.engine import environment
 from heat.common import exception
 from heat.tests.v1_1 import fakes
@@ -39,7 +38,7 @@ from heat.engine import watchrule
 from heat.openstack.common import threadgroup
 from heat.tests.common import HeatTestCase
 from heat.tests import utils
-from heat.tests.utils import setup_dummy_db
+from heat.tests.utils import setup_dummy_db, dummy_context
 
 
 wp_template = '''
@@ -69,13 +68,13 @@ wp_template = '''
 
 
 def create_context(mocks, user='stacks_test_user',
-                   tenant='test_admin', password='stacks_test_password'):
-    ctx = context.get_admin_context()
+                   tenant_id='test_admin', password='stacks_test_password'):
+    ctx = dummy_context()
     mocks.StubOutWithMock(ctx, 'username')
     mocks.StubOutWithMock(ctx, 'tenant_id')
     mocks.StubOutWithMock(ctx, 'password')
     ctx.username = user
-    ctx.tenant_id = tenant
+    ctx.tenant_id = tenant_id
     ctx.password = password
     return ctx
 
@@ -203,7 +202,7 @@ class stackCreateTest(HeatTestCase):
         self.assertNotEqual(stack.resources['WebServer'].ipaddress, '0.0.0.0')
 
     def test_wordpress_single_instance_stack_delete(self):
-        ctx = create_context(self.m, tenant='test_delete_tenant')
+        ctx = create_context(self.m)
         stack = get_wordpress_stack('test_stack', ctx)
         fc = setup_mocks(self.m, stack)
         self.m.ReplayAll()
@@ -234,10 +233,8 @@ class stackServiceCreateUpdateDeleteTest(HeatTestCase):
 
     def setUp(self):
         super(stackServiceCreateUpdateDeleteTest, self).setUp()
-        self.username = 'stack_service_create_test_user'
-        self.tenant = 'stack_service_create_test_tenant'
         setup_dummy_db()
-        self.ctx = create_context(self.m, self.username, self.tenant)
+        self.ctx = create_context(self.m)
 
         self.man = service.EngineService('a-host', 'a-topic')
 
@@ -507,10 +504,8 @@ class stackServiceSuspendResumeTest(HeatTestCase):
 
     def setUp(self):
         super(stackServiceSuspendResumeTest, self).setUp()
-        self.username = 'stack_service_suspend_test_user'
-        self.tenant = 'stack_service_suspend_test_tenant'
         setup_dummy_db()
-        self.ctx = create_context(self.m, self.username, self.tenant)
+        self.ctx = create_context(self.m)
 
         self.man = service.EngineService('a-host', 'a-topic')
 
@@ -577,10 +572,9 @@ class stackServiceTest(HeatTestCase):
         super(stackServiceTest, self).setUp()
 
         config.register_engine_opts()
-        self.username = 'stack_service_test_user'
-        self.tenant = 'stack_service_test_tenant'
 
-        self.ctx = create_context(self.m, self.username, self.tenant)
+        self.ctx = create_context(self.m,
+                                  tenant_id='stack_service_test_tenant')
         self.eng = service.EngineService('a-host', 'a-topic')
         cfg.CONF.set_default('heat_stack_user_role', 'stack_user_role')
 
@@ -625,8 +619,7 @@ class stackServiceTest(HeatTestCase):
         self.assertEqual(self.stack.id,
                          db_api.stack_get_by_name(self.ctx,
                                                   self.stack.name).id)
-        ctx2 = create_context(self.m, self.username,
-                              'stack_service_test_tenant2')
+        ctx2 = create_context(self.m, tenant_id='stack_service_test_tenant2')
         self.assertEqual(None, db_api.stack_get_by_name(ctx2, self.stack.name))
 
     @stack_context('service_event_list_test_stack')
@@ -1062,7 +1055,10 @@ class stackServiceTest(HeatTestCase):
         service.EngineService._get_stack(self.ctx,
                                          self.stack.identifier()).AndReturn(s)
         self.m.StubOutWithMock(instances.Instance, 'metadata_update')
+        self.m.StubOutWithMock(db_api, 'user_creds_get')
         instances.Instance.metadata_update(new_metadata=test_metadata)
+        db_api.user_creds_get(mox.IgnoreArg()).MultipleTimes().AndReturn(
+            self.ctx.to_dict())
         self.m.ReplayAll()
 
         result = self.eng.metadata_update(self.ctx,

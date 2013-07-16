@@ -31,6 +31,7 @@ import heat.api.openstack.v1.stacks as stacks
 import heat.api.openstack.v1.resources as resources
 import heat.api.openstack.v1.events as events
 import heat.api.openstack.v1.actions as actions
+from heat.tests.utils import dummy_context
 
 
 class InstantiationDataTest(HeatTestCase):
@@ -207,7 +208,7 @@ class ControllerTest(object):
         environ['REQUEST_METHOD'] = method
 
         req = Request(environ)
-        req.context = self._create_context()
+        req.context = dummy_context()
         return req
 
     def _get(self, path):
@@ -222,7 +223,7 @@ class ControllerTest(object):
         environ['REQUEST_METHOD'] = method
 
         req = Request(environ)
-        req.context = self._create_context()
+        req.context = dummy_context()
         req.body = data
         return req
 
