@@ -346,24 +346,7 @@ class Instance(resource.Resource):
             flavor_id = nova_utils.get_flavor_id(self.nova(), flavor)
             server = self.nova().servers.get(self.resource_id)
             server.resize(flavor_id)
-            scheduler.TaskRunner(self._check_resize, server, flavor)()
-
-    def _check_resize(self, server, flavor):
-        """
-        Verify that the server is properly resized. If that's the case, confirm
-        the resize, if not raise an error.
-        """
-        yield
-        server.get()
-        while server.status == 'RESIZE':
-            yield
-            server.get()
-        if server.status == 'VERIFY_RESIZE':
-            server.confirm_resize()
-        else:
-            raise exception.Error(
-                "Resizing to '%s' failed, status '%s'" % (
-                    flavor, server.status))
+            scheduler.TaskRunner(nova_utils.check_resize, server, flavor)()
 
     def metadata_update(self, new_metadata=None):
         '''
