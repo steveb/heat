@@ -138,16 +138,6 @@ class Instance(resource.Resource):
     update_allowed_keys = ('Metadata', 'Properties')
     update_allowed_properties = ('InstanceType',)
 
-    _deferred_server_statuses = ['BUILD',
-                                 'HARD_REBOOT',
-                                 'PASSWORD',
-                                 'REBOOT',
-                                 'RESCUE',
-                                 'RESIZE',
-                                 'REVERT_RESIZE',
-                                 'SHUTOFF',
-                                 'SUSPENDED',
-                                 'VERIFY_RESIZE']
 
     def __init__(self, name, json_snippet, stack):
         super(Instance, self).__init__(name, json_snippet, stack)
@@ -478,7 +468,7 @@ class Instance(resource.Resource):
                 server.get()
                 logger.debug("%s check_suspend_complete status = %s" %
                              (self.name, server.status))
-                if server.status in list(self._deferred_server_statuses +
+                if server.status in list(nova_utils.deferred_server_statuses +
                                          ['ACTIVE']):
                     return server.status == 'SUSPENDED'
                 else:
