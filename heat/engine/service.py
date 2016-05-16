@@ -1808,8 +1808,16 @@ class EngineService(service.Service):
 
         if depth > 0:
             # populate context with resources from all nested depths
-            resource_objects.Resource.get_all_by_root_stack(
+            all_resources = resource_objects.Resource.get_all_by_root_stack(
                 cnxt, stack.id, filters, cache=True)
+
+            # populate context with stacks from all nested depths
+            stack_ids = {r.stack_id for r in six.itervalues(all_resources)}
+            all_stacks = list(stack_object.Stack.get_all(
+                cnxt, filters={'id': stack_ids}, show_nested=True, cache=True))
+            # iterate the stacks to populate the context
+            for s in all_stacks:
+                pass
 
         def filter_type(res_iter):
             for res in res_iter:

@@ -30,6 +30,18 @@ from heat.objects import raw_template
 from heat.objects import stack_tag
 
 
+class StackCache(object):
+
+    def __init__(self):
+        self.by_id = {}
+
+    def set(self, stack):
+        self.by_id[stack.id] = stack
+
+    def delete(self, stack_id):
+        self.by_id.pop(stack_id, None)
+
+
 class Stack(
     heat_base.HeatObject,
     base.VersionedObjectDictCompat,
@@ -64,7 +76,7 @@ class Stack(
     }
 
     @staticmethod
-    def _from_db_object(context, stack, db_stack):
+    def _from_db_object(context, stack, db_stack, cache=False):
         for field in stack.fields:
             if field == 'raw_template':
                 stack['raw_template'] = (
@@ -74,6 +86,8 @@ class Stack(
                 stack[field] = db_stack.__dict__.get(field)
         stack._context = context
         stack.obj_reset_changes()
+        if cache:
+            context.cache(StackCache).set(stack)
         return stack
 
     @classmethod
@@ -81,7 +95,11 @@ class Stack(
         return db_api.stack_get_root_id(context, stack_id)
 
     @classmethod
-    def get_by_id(cls, context, stack_id, **kwargs):
+    def get_by_id(cls, context, stack_id, refresh=True, **kwargs):
+        if not refresh:
+            stack = context.cache(StackCache).by_id.get(stack_id)
+            if stack:
+                return stack
         db_stack = db_api.stack_get(context, stack_id, **kwargs)
         if not db_stack:
             return None
@@ -113,7 +131,7 @@ class Stack(
                 sort_dir=None, filters=None, tenant_safe=True,
                 show_deleted=False, show_nested=False, show_hidden=False,
                 tags=None, tags_any=None, not_tags=None,
-                not_tags_any=None):
+                not_tags_any=None, cache=False):
         db_stacks = db_api.stack_get_all(
             context,
             limit=limit,
@@ -131,7 +149,8 @@ class Stack(
             not_tags_any=not_tags_any)
         for db_stack in db_stacks:
             try:
-                yield cls._from_db_object(context, cls(context), db_stack)
+                yield cls._from_db_object(context, cls(context), db_stack,
+                                          cache=cache)
             except exception.NotFound:
                 pass
 
@@ -164,6 +183,7 @@ class Stack(
         Note: the underlying stack_update filters by current_traversal
         and stack_id.
         """
+        context.cache(StackCache).delete(stack_id)
         return db_api.stack_update(context, stack_id, values)
 
     @classmethod
@@ -178,20 +198,24 @@ class Stack(
         If there occurs a race while updating, only one will succeed and
         other will get return value of False.
         """
+        context.cache(StackCache).delete(stack_id)
         return db_api.stack_update(context, stack_id, values,
                                    exp_trvsl=exp_trvsl)
 
     @classmethod
     def persist_state_and_release_lock(cls, context, stack_id,
                                        engine_id, values):
+        context.cache(StackCache).delete(stack_id)
         return db_api.persist_state_and_release_lock(context, stack_id,
                                                      engine_id, values)
 
     @classmethod
     def delete(cls, context, stack_id):
+        context.cache(StackCache).delete(stack_id)
         db_api.stack_delete(context, stack_id)
 
     def update_and_save(self, values):
+        self._context.cache(StackCache).delete(self.id)
         has_updated = self.__class__.update_by_id(self._context,
                                                   self.id, values)
         if not has_updated:
@@ -206,6 +230,7 @@ class Stack(
         return super(Stack, self).__eq__(another)
 
     def refresh(self):
+        self._context.cache(StackCache).delete(self.id)
         db_stack = db_api.stack_get(
             self._context, self.id, show_deleted=True)
         if db_stack is None:

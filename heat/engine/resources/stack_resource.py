@@ -144,8 +144,13 @@ class StackResource(resource.Resource):
         """
         if self._nested is None and self.resource_id is not None:
             try:
+                stack = stack_object.Stack.get_by_id(
+                    self.context,
+                    self.resource_id,
+                    refresh=False,
+                    eager_load=True)
                 self._nested = parser.Stack.load(self.context,
-                                                 self.resource_id)
+                                                 stack=stack)
             except exception.NotFound:
                 return None
 

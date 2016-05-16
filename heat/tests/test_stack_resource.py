@@ -472,22 +472,28 @@ class StackResourceTest(StackResourceBaseTest):
                           self.parent_resource._validate_nested_resources,
                           template)
 
-    def test_load_nested_ok(self):
+    @mock.patch.object(stack_object, 'Stack')
+    def test_load_nested_ok(self, mock_stackobj):
+        stack = mock.Mock()
+        mock_stackobj.get_by_id.return_value = stack
         self.parent_resource._nested = None
         self.parent_resource.resource_id = 319
         self.m.StubOutWithMock(parser.Stack, 'load')
         parser.Stack.load(self.parent_resource.context,
-                          self.parent_resource.resource_id).AndReturn('s')
+                          stack=stack).AndReturn('s')
         self.m.ReplayAll()
         self.parent_resource.nested()
         self.m.VerifyAll()
 
-    def test_load_nested_non_exist(self):
+    @mock.patch.object(stack_object, 'Stack')
+    def test_load_nested_non_exist(self, mock_stackobj):
+        stack = mock.Mock()
+        mock_stackobj.get_by_id.return_value = stack
         self.parent_resource._nested = None
         self.parent_resource.resource_id = '90-8'
         self.m.StubOutWithMock(parser.Stack, 'load')
         parser.Stack.load(self.parent_resource.context,
-                          self.parent_resource.resource_id).AndRaise(
+                          stack=stack).AndRaise(
             exception.NotFound)
         self.m.ReplayAll()
 
