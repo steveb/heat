@@ -15,6 +15,8 @@
 
 """Resource object."""
 
+import collections
+
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 from oslo_versionedobjects import base
@@ -40,6 +42,19 @@ def retry_on_conflict(func):
                              wait_random_min=0.0, wait_random_max=2.0,
                              retry_on_exception=is_conflict)
     return wrapper(func)
+
+
+class ResourceCache(object):
+
+    def __init__(self):
+        self.delete_all()
+
+    def delete_all(self):
+        self.by_stack_id_name = collections.defaultdict(dict)
+
+    def set_by_stack_id(self, resources):
+        for res in six.itervalues(resources):
+            self.by_stack_id_name[res.stack_id][res.name] = res
 
 
 class Resource(
@@ -124,11 +139,13 @@ class Resource(
 
     @classmethod
     def delete(cls, context, resource_id):
+        context.cache(ResourceCache).delete_all()
         resource_db = db_api.resource_get(context, resource_id)
         resource_db.delete()
 
     @classmethod
     def exchange_stacks(cls, context, resource_id1, resource_id2):
+        context.cache(ResourceCache).delete_all()
         return db_api.resource_exchange_stacks(
             context,
             resource_id1,
@@ -136,6 +153,12 @@ class Resource(
 
     @classmethod
     def get_all_by_stack(cls, context, stack_id, key_id=False, filters=None):
+        cache = context.cache(ResourceCache)
+        if not key_id:
+            resources = cache.by_stack_id_name.get(stack_id)
+            if resources:
+                return dict(resources)
+
         resources_db = db_api.resource_get_all_by_stack(context,
                                                         stack_id, key_id,
                                                         filters)
@@ -153,12 +176,15 @@ class Resource(
         return dict(resources)
 
     @classmethod
-    def get_all_by_root_stack(cls, context, stack_id, filters):
+    def get_all_by_root_stack(cls, context, stack_id, filters, cache=False):
         resources_db = db_api.resource_get_all_by_root_stack(
             context,
             stack_id,
             filters)
-        return cls._resources_to_dict(context, resources_db)
+        all = cls._resources_to_dict(context, resources_db)
+        if cache:
+            context.cache(ResourceCache).set_by_stack_id(all)
+        return all
 
     @classmethod
     def get_by_name_and_stack(cls, context, resource_name, stack_id):
@@ -177,20 +203,24 @@ class Resource(
 
     @classmethod
     def update_by_id(cls, context, resource_id, values):
+        context.cache(ResourceCache).delete_all()
         resource_db = db_api.resource_get(context, resource_id)
         resource_db.update_and_save(values)
 
     def update_and_save(self, values):
+        self._context.cache(ResourceCache).delete_all()
         resource_db = db_api.resource_get(self._context, self.id)
         resource_db.update_and_save(values)
 
     def select_and_update(self, values, expected_engine_id=None,
                           atomic_key=0):
+        self._context.cache(ResourceCache).delete_all()
         return db_api.resource_update(self._context, self.id, values,
                                       atomic_key=atomic_key,
                                       expected_engine_id=expected_engine_id)
 
     def refresh(self, attrs=None):
+        self._context.cache(ResourceCache).delete_all()
         resource_db = db_api.resource_get(self._context, self.id)
         resource_db.refresh(attrs=attrs)
         return self.__class__._from_db_object(
@@ -210,6 +240,7 @@ class Resource(
         return (False, data)
 
     def update_metadata(self, metadata):
+        self._context.cache(ResourceCache).delete_all()
         if self.rsrc_metadata != metadata:
             rows_updated = self.select_and_update(
                 {'rsrc_metadata': metadata}, self.engine_id, self.atomic_key)
