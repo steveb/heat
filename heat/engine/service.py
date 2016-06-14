@@ -1808,6 +1808,22 @@ class EngineService(service.Service):
             # so sqlalchemy filters can't be used.
             res_type = filters.pop('type', None)
 
+        all_resources = {}
+        all_stacks = []
+        if depth > 0:
+            # populate database session with resources from all nested depths
+            all_resources = resource_objects.Resource.get_all_by_root_stack(
+                cnxt, stack.id, filters)
+            # populate context with stacks from the specified nested depth
+            stack_ids = {r.stack_id for r in six.itervalues(all_resources)}
+            stack_filters = {
+                'id': stack_ids,
+                'nested_depth': list(range(depth + 1))
+            }
+            # iterate the stacks to populate the context
+            all_stacks = list(stack_object.Stack.get_all(
+                cnxt, filters=stack_filters, show_nested=True))
+
         def filter_type(res_iter):
             for res in res_iter:
                 if res_type not in res.type():
@@ -1817,8 +1833,12 @@ class EngineService(service.Service):
             rsrcs = stack.iter_resources(depth, filters=filters)
         else:
             rsrcs = filter_type(stack.iter_resources(depth, filters=filters))
-        return [api.format_stack_resource(resource, detail=with_detail)
-                for resource in rsrcs]
+        try:
+            return [api.format_stack_resource(resource, detail=with_detail)
+                    for resource in rsrcs]
+        finally:
+            all_resources.clear()
+            del all_stacks[:]
 
     @context.request_context
     def stack_suspend(self, cnxt, stack_identity):
